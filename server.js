@@ -6,20 +6,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
+// Debug: log available env vars on startup
+console.log('PORT:', PORT);
+console.log('ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
+console.log('ANTHROPIC_API_KEY prefix:', process.env.ANTHROPIC_API_KEY?.slice(0, 10));
+
 const apiKey = process.env.ANTHROPIC_API_KEY;
-if (!apiKey || !apiKey.startsWith('sk-')) {
-  console.error('ANTHROPIC_API_KEY not set. Run: ANTHROPIC_API_KEY=sk-ant-... node server.js');
-  process.exit(1);
-}
 
 app.use(cors());
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', keySet: !!apiKey });
 });
 
 app.post('/api/generate', async (req, res) => {
+  if (!apiKey) {
+    return res.status(500).json({ error: { message: 'API key not configured on server' } });
+  }
+
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
