@@ -1,9 +1,18 @@
 require('dotenv').config({ override: false });
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const generateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 25,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { message: 'Too many requests. Please try again later.' } },
+});
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 // Debug: log available env vars on startup
@@ -76,7 +85,7 @@ app.get('/terms', (_req, res) => {
 </body></html>`);
 });
 
-app.post('/api/generate', async (req, res) => {
+app.post('/api/generate', generateLimiter, async (req, res) => {
   if (!apiKey) {
     return res.status(500).json({ error: { message: 'API key not configured on server' } });
   }
