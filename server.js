@@ -85,10 +85,30 @@ app.get('/terms', (_req, res) => {
 </body></html>`);
 });
 
+const PROXY_SECRET = process.env.PROXY_SECRET;
+const ALLOWED_MODEL = 'claude-haiku-4-5-20251001';
+const MAX_TOKENS_LIMIT = 600;
+
 app.post('/api/generate', generateLimiter, async (req, res) => {
   if (!apiKey) {
     return res.status(500).json({ error: { message: 'API key not configured on server' } });
   }
+
+  // Shared-secret check
+  if (PROXY_SECRET && req.headers['x-proxy-secret'] !== PROXY_SECRET) {
+    return res.status(401).json({ error: { message: 'Unauthorized' } });
+  }
+
+  // Lock model and cap tokens
+  const { model, max_tokens, ...rest } = req.body;
+  if (model && model !== ALLOWED_MODEL) {
+    return res.status(400).json({ error: { message: 'Model not permitted' } });
+  }
+  const safeBody = {
+    ...rest,
+    model: ALLOWED_MODEL,
+    max_tokens: Math.min(max_tokens || MAX_TOKENS_LIMIT, MAX_TOKENS_LIMIT),
+  };
 
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -98,7 +118,7 @@ app.post('/api/generate', generateLimiter, async (req, res) => {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(safeBody),
     });
 
     const data = await response.json();
